@@ -1,13 +1,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-// função sleep
-#ifdef _WIN32
-#include <Windows.h>
-#else
 #include <unistd.h>
-#endif
 
 #define FILOSOFOS_COUNT 5
 
@@ -41,15 +35,15 @@ int put_forks(int n)
   return 0;
 }
 
-void *filosofo(int n)
+void *filosofo(int *n)
 {
   while (1)
   {
-    think(n);
-    get_forks(n);
-    eat(n);
-    put_forks(n);
-    printf("\nFilosofo %d terminou de comer!", n);
+    think(*n);
+    get_forks(*n);
+    eat(*n);
+    put_forks(*n);
+    printf("\nFilosofo %d terminou de comer!", *n);
   }
 
   return 0;
@@ -58,15 +52,15 @@ void *filosofo(int n)
 int main(int argc, char const *argv[])
 {
   // Inicializar mutexes
-  for (int i = 0; i < FILOSOFOS_COUNT; i++)
+  for (size_t i = 0; i < FILOSOFOS_COUNT; i++)
     pthread_mutex_init(&garfos[i], NULL);
 
   // Inicializar threads
-  for (int i = 0; i < FILOSOFOS_COUNT; i++)
+  for (size_t i = 0; i < FILOSOFOS_COUNT; i++)
     pthread_create(&filosofos[i], NULL, (void *)filosofo, (void *)i);
 
   // Aguarda finalizar
-  for (int i = 0; i < FILOSOFOS_COUNT; i++)
+  for (size_t i = 0; i < FILOSOFOS_COUNT; i++)
     pthread_join(filosofos[i], NULL);
 
   pthread_exit(NULL);
