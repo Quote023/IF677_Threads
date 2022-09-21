@@ -35,15 +35,15 @@ int put_forks(int n)
   return 0;
 }
 
-void *filosofo(int *n)
+void *filosofo(int n)
 {
   while (1)
   {
-    think(*n);
-    get_forks(*n);
-    eat(*n);
-    put_forks(*n);
-    printf("\nFilosofo %d terminou de comer!", *n);
+    think(n);
+    get_forks(n);
+    eat(n);
+    put_forks(n);
+    printf("\nFilosofo %d terminou de comer!", n);
   }
 
   return 0;
