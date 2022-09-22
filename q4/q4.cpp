@@ -1,187 +1,169 @@
 #include <iostream>
 #include <vector>
 #include <list>
+#include <climits>
+#include <algorithm>
 
 using namespace std;
+using Grafo = vector<vector<pair<int, int>>>;
 
-void print(vector<int> &A)
+struct Aresta
 {
-  for (auto &&a : A)
-  {
-    cout << a << " ";
-  }
-  cout << "\n";
-}
+  int a, b, weight;
+};
 
-// Disjoint sets (union find)
-class Floresta
+struct Arvore
+{
+  int pai;
+  int rank;
+  list<int> data;
+};
+
+class Arvores
 {
 public:
-  int n_arvores;
-  vector<int> pai;
-  vector<int> rank;
-  vector<list<int>> arvore;
+  int tamanho;
+  vector<Arvore> arvores;
 
-  Floresta(int n_nodes)
+  Arvores(int size)
   {
-
-    n_arvores = n_nodes;
-    pai.resize(n_nodes);
-    rank.resize(n_nodes);
-    arvore.resize(n_nodes);
-    for (int i = 0; i < n_nodes; i++)
+    tamanho = size;
+    arvores.resize(size); // uma arvore pra cada nó
+    for (int i = 0; i < size; i++)
     {
-      pai[i] = i;
-      rank[i] = 0;
-      arvore[i].push_back(i);
+      arvores[i].pai = i;
+      arvores[i].rank = i;
+      arvores[i].data.push_back(i);
     }
   }
 
-  int Find(int node)
+  int FindRaiz(int node)
   {
-    if (pai[node] == node)
-    {
-      return pai[node];
-    }
+    if (arvores[node].pai == node)
+      return arvores[node].pai;
 
-    int raiz = Find(pai[node]);
-    pai[node] = raiz;
-    return raiz;
+    int r = FindRaiz(arvores[node].pai);
+    arvores[node].pai = r;
+    return r;
   }
 
-  void Union(int node1, int node2)
+  void Union(int node1, int b)
   {
-    int raiz1 = Find(node1);
-    int raiz2 = Find(node2);
+    int r1 = FindRaiz(node1);
+    int r2 = FindRaiz(b);
 
-    if (rank[raiz1] > rank[raiz2])
-      swap(raiz1, raiz2);
+    if (arvores[r1].rank > arvores[r2].rank)
+      swap(r1, r2);
 
-    if (rank[raiz1] == rank[raiz2])
-      rank[raiz2]++;
+    if (arvores[r1].rank == arvores[r2].rank)
+      arvores[r2].rank++;
 
-    arvore[raiz2].splice(arvore[raiz2].end(),
-                         arvore[raiz1]);
+    arvores[r2].data.splice(arvores[r2].data.end(), arvores[r1].data);
 
-    pai[raiz1] = pai[raiz2];
-    this->n_arvores -= 1;
+    arvores[r1].pai = arvores[r2].pai;
+    this->tamanho -= 1;
   }
 };
 
-struct aresta
+struct ThreadProps
 {
-  int node1;
-  int node2;
-  int peso;
-  aresta(int p)
-  {
-    peso = p;
-  }
-  aresta(int n1, int n2, int p)
-  {
-    node1 = n1;
-    node2 = n2;
-    peso = p;
-  }
+  vector<Aresta> *mst;
+  Arvores *floresta;
+  Aresta bestEdge;
 };
 
-aresta find_best_edge(vector<vector<pair<int, int>>> grafo, Floresta &f, list<int> &arvore)
+Aresta findBestEdge(Grafo grafo, Arvores &arvores, list<int> &arvore)
 {
-  struct aresta best_edge(INT_MAX);
+  struct Aresta best = {.weight = INT_MAX};
 
-  // para cada node na arvore
   for (auto node : arvore)
-  {
-    // olha todas arestas ligadas a este node
-    for (auto a : grafo[node])
+    for (auto aresta : grafo[node])
     {
-      int vizinho = a.first;
-      int peso_node_vizinho = a.second;
-
       // apenas arestas que ligam a arvore a outra
-      if (f.Find(vizinho) == f.Find(node))
+      if (arvores.FindRaiz(aresta.first) == arvores.FindRaiz(node))
         continue;
 
-      if (best_edge.peso > peso_node_vizinho)
-      {
-        best_edge = aresta(node, vizinho, peso_node_vizinho);
-      };
+      if (best.weight > aresta.second)
+        best = Aresta{.a = node, .b = aresta.first, .weight = aresta.second};
     }
-  }
-  return best_edge;
+
+  return best;
 }
 
-vector<aresta> find_best_edges(vector<vector<pair<int, int>>> grafo, Floresta &f, vector<aresta> &mst)
+vector<Aresta> findBestEdges(Grafo grafo, Arvores &f, vector<Aresta> &mst)
 {
-  int n_nodes = grafo.size();
-  vector<aresta> best_edges;
-  for (int node = 0; node < n_nodes; node++)
+  vector<Aresta> bestEdges;
+  for (int node = 0; node < grafo.size(); node++)
   {
-    // achando raiz que representa a arvore
-    if (f.pai[node] == node)
-    {
-      int raiz = node;
+    // Apenas raizes
+    if (f.arvores[node].pai != node)
+      continue;
 
-      // melhor aresta que liga esta arvore a outra
-      aresta best_edge = find_best_edge(grafo, f, f.arvore[raiz]);
-      best_edges.push_back(best_edge);
-    }
+    Aresta bestEdge = findBestEdge(grafo, f, f.arvores[node].data);
+    bestEdges.push_back(bestEdge);
   }
-  return best_edges;
+  return bestEdges;
 }
 
-struct Params
+void *bestEdge(void *args)
 {
-  aresta best_edge;
-  vector<aresta> *mst;
-  Floresta *f;
-};
+  struct ThreadProps *props = (ThreadProps *)args;
+  Aresta bestEdge = props->bestEdge;
+  int n1 = bestEdge.a;
+  int n2 = bestEdge.b;
 
-void *bestEdge(void *param)
-{
-  aresta best_edge = ((Params *)param)->best_edge;
-  int n1 = best_edge.node1;
-  int n2 = best_edge.node2;
-
-  if ((*((Params *)param)->f).Find(n1) != (*((Params *)param)->f).Find(n2))
+  if (props->floresta->FindRaiz(n1) != props->floresta->FindRaiz(n2))
   {
-    (*((Params *)param)->mst).push_back(best_edge);
-    (*((Params *)param)->f).Union(n1, n2);
+    props->mst->push_back(bestEdge);
+    props->floresta->Union(n1, n2);
   }
   return NULL;
 }
 
-vector<aresta> boruvka(vector<vector<pair<int, int>>> grafo)
+/*
+ALGORITMO BORUVKA(G)
+    Crie uma floresta F com cada nó do grafo
+    Crie um vetor de LIDER com todos os nós
+
+    para cada nó u em G
+        LIDER[u] = u
+
+    Enquanto F > 1 faça
+        para cada componente c em G
+            ache a aresta cv de menor custo
+            se FIND(c, LIDER) diferente de FIND(v, LIDER) então
+                adicione cv a F
+                UNION(c, v)
+FIM
+*/
+vector<Aresta> boruvka(Grafo grafo)
 {
-  vector<aresta> mst;
-
-  int n_nodes = grafo.size();
+  vector<Aresta> mst;
   pthread_t threads[grafo.size()];
-  Params *t_params = (Params *)malloc(sizeof(Params) * grafo.size());
+  ThreadProps *t_params = (ThreadProps *)malloc(sizeof(ThreadProps) * grafo.size());
 
-  Floresta f(n_nodes);
+  Arvores f(grafo.size());
 
-  while (f.n_arvores > 1)
+  while (f.tamanho > 1)
   {
-    vector<aresta> best_edges = find_best_edges(grafo, f, mst);
+    vector<Aresta> best_edges = findBestEdges(grafo, f, mst);
 
-    int i = 0;
-    for (auto best_edge : best_edges)
+    for (int i = 0; i < best_edges.size(); ++i)
     {
-      t_params[i].best_edge = best_edge;
+      t_params[i].bestEdge = best_edges[i];
       t_params[i].mst = &mst;
-      t_params[i].f = &f;
+      t_params[i].floresta = &f;
       pthread_create(&threads[i], NULL, bestEdge, &t_params[i]);
       i++;
     }
 
-    i = 0;
-    for (auto best_edge : best_edges)
-    {
+    for (int i = 0; i < best_edges.size(); ++i)
       pthread_join(threads[i], NULL);
-      i++;
-    }
   }
+
+  sort(mst.begin(), mst.end(), [](const Aresta &a, const Aresta &b) -> bool
+       { return a.weight < b.weight; });
+
   return mst;
 }
 
@@ -197,7 +179,7 @@ int main()
           9          */
 
   // estrutura: tupla (Peso, Nó)
-  vector<vector<pair<int, int>>> graph = {
+  Grafo graph = {
       {make_pair(1, 2), make_pair(3, 6)},                                   // 0
       {make_pair(0, 2), make_pair(2, 3), make_pair(3, 8), make_pair(4, 5)}, // 1
       {make_pair(1, 3), make_pair(4, 7)},                                   // 2
@@ -205,10 +187,10 @@ int main()
       {make_pair(3, 9), make_pair(1, 5), make_pair(2, 7)}                   // 4
   };
 
-  vector<aresta> mst = boruvka(graph);
-  for (auto a : mst)
-  {
-    cout << a.node1 << " - " << a.node2 << " " << a.peso << endl;
-  }
+  vector<Aresta> mst = boruvka(graph);
+  cout << "(x-y)\tPESO" << endl;
+  for (Aresta a : mst)
+    cout << "(" << a.a << "-" << a.b << ")\t" << a.weight << endl;
+
   return 0;
 }
