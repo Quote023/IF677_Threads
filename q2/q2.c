@@ -23,7 +23,7 @@ void *inRoute(int id)
     // entrar na interseccão
     pthread_mutex_lock(&mtx_intersec[c_inter]);
     pthread_mutex_lock(&mtx_count[c_inter]);
-    printf("trem %d tentando entrar na interseccao %d\n", id, c_inter + 1);
+    printf("trem %d tentando entrar na interseccao %d. %d/2 trens\n", id, c_inter + 1, train_count[c_inter]);
     while (train_count[c_inter] >= TRENS_POR_INTERSEC)
     {
       printf("trem %d esperando interseccao %d ser liberada\n", id, c_inter + 1);
