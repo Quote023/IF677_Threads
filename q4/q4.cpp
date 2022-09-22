@@ -140,13 +140,13 @@ vector<Aresta> boruvka(Grafo grafo)
 {
   vector<Aresta> mst;
   pthread_t threads[grafo.size()];
-  ThreadProps *t_params = (ThreadProps *)malloc(sizeof(ThreadProps) * grafo.size());
 
   Arvores f(grafo.size());
 
   while (f.tamanho > 1)
   {
     vector<Aresta> best_edges = findBestEdges(grafo, f, mst);
+    ThreadProps *t_params = (ThreadProps *)malloc(sizeof(ThreadProps) * best_edges.size());
 
     for (int i = 0; i < best_edges.size(); ++i)
     {
@@ -154,11 +154,12 @@ vector<Aresta> boruvka(Grafo grafo)
       t_params[i].mst = &mst;
       t_params[i].floresta = &f;
       pthread_create(&threads[i], NULL, bestEdge, &t_params[i]);
-      i++;
     }
 
     for (int i = 0; i < best_edges.size(); ++i)
       pthread_join(threads[i], NULL);
+
+    free(t_params);
   }
 
   sort(mst.begin(), mst.end(), [](const Aresta &a, const Aresta &b) -> bool
