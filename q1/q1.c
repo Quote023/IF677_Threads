@@ -56,7 +56,7 @@ int setup(int qtd_candidatos, int qtd_threads)
     printf("Candidato %d:\tVotos: %d\t(%d%%)\n", i, votos[i], ((votos[i] * 100) / total));
   }
 
-  printf("\nVotos Nulos: %d\nTotal de Votos: %d\n", votos[0], total);
+  printf("\nVotos Nulos: %d\t(%d%%) \nTotal de Votos: %d\n", votos[0], ((votos[0] * 100) / total), total);
   printf("O Candidato %d venceu as eleicoes!\n", vencedor);
 
   return 0;
