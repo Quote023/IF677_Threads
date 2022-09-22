@@ -39,7 +39,7 @@ void *inRoute(int id)
     ++train_count[c_inter]; // aumenta a quantidade de trens
     pthread_mutex_unlock(&mtx_count[c_inter]);
     printf("trem %d passando pela interseccao %d\n", id, c_inter + 1);
-    sleep(1); // espera
+    usleep(500); // espera
 
     pthread_mutex_lock(&mtx_count[c_inter]);
     --train_count[c_inter]; // diminui a quantidade de trens
