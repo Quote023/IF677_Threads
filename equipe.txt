@@ -1,0 +1,6 @@
+2022.1- IF677 - Infraestrutura de Software
+Projeto de Threads
+
+acs11 - Alexandre Candido Souza
+jss4  - Juliana Serafim da Silva 
+jcasf - Julio Cesar de Araujo Sobral Filho
