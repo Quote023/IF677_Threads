@@ -1,88 +1,84 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <time.h>
 
-int check = 0;
-int n, **matrix;
+int duplicado = 0;
+int n = 4;
+int **matrix;
 
-void *lerLinha()
+void *lerLinha(int l_num)
 {
-  for (int i = 0; i < n; i++)
-  {
-    int a = matrix[0][i];
-    for (int j = i + 1; j < n; j++)
-    {
-      if (matrix[i][j] == a)
+  for (int i = 0; i < n - 1; ++i)
+    for (int j = i + 1; j < n; ++j)
+      if (matrix[l_num][j] == matrix[l_num][i])
       {
-        check = 1;
+        duplicado = 1;
         pthread_exit(NULL);
       }
-    }
-  }
+
   pthread_exit(NULL);
 }
 
-void *lerColuna()
+void *lerColuna(int c_num)
 {
-  for (int i = 0; i < n; i++)
-  {
-    int b = matrix[i][0];
+  for (int i = 0; i < n - 1; i++)
     for (int j = i + 1; j < n; j++)
     {
-      if (matrix[j][i] == b)
+      if (matrix[j][c_num] == matrix[i][c_num])
       {
-        check = 1;
+        duplicado = 1;
         pthread_exit(NULL);
       }
     }
-  }
   pthread_exit(NULL);
 }
 
 int main()
 {
-  pthread_t thread1, thread2;
 
+  srand(time(NULL));
   printf("Tamanho da matrix?");
   scanf("%d", &n);
-
   matrix = malloc(sizeof(int *) * n);
 
+  printf("Digite cada valor separado por espaco (numeros de 0-9)");
   for (int i = 0; i < n; i++)
   {
     matrix[i] = malloc(sizeof(int) * n);
-  }
-
-  for (int i = 0; i < n; i++)
-  {
     for (int j = 0; j < n; j++)
     {
-      matrix[i][j] = (i * 10) + j;
+      scanf("%d", &matrix[i][j]);
     }
   }
 
-  for (int i = 0; i < n; i++)
+  for (size_t i = 0; i < n; i++)
   {
-    for (int j = 0; j < n; j++)
-    {
-      matrix[i][j] = rand() % 10;
-      printf("%d ", matrix[i][j]);
-    }
     printf("\n");
+    for (size_t j = 0; j < n; j++)
+      printf("%d ", matrix[i][j]);
   }
+  printf("\n");
 
-  pthread_create(&thread1, NULL, lerLinha, NULL);
-  pthread_create(&thread2, NULL, lerColuna, NULL);
-  pthread_join(thread1, NULL);
-  pthread_join(thread2, NULL);
+  pthread_t t_linhas[n];
+  pthread_t t_colunas[n];
 
-  if (check == 1)
-  {
+  for (size_t i = 0; i < n; i++)
+    pthread_create(&t_linhas[i], NULL, (void *)lerLinha, (void *)i);
+
+  for (size_t i = 0; i < n; i++)
+    pthread_create(&t_colunas[i], NULL, (void *)lerColuna, (void *)i);
+
+  for (size_t i = 0; i < n; i++)
+    pthread_join(&t_linhas[i], NULL);
+
+  for (size_t i = 0; i < n; i++)
+    pthread_join(&t_colunas[i], NULL);
+
+  if (duplicado == 1)
     printf("Matrix normal");
-  }
   else
-  {
     printf("Matrix latina");
-  }
+
   return 0;
 }
