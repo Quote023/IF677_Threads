@@ -6,85 +6,76 @@
 
 #define NUM_TRAIN 10 // quantidade de trens
 #define NUM_INTER 5  // numero de intersecoes
+#define TRENS_POR_INTERSEC 2
 
-void *inRoute(void *threadtrain)
+pthread_mutex_t mtx_intersec[NUM_INTER];
+pthread_cond_t cond_interesc[NUM_INTER];
+
+pthread_mutex_t mtx_count[NUM_INTER];
+int train_count[NUM_INTER] = {0};
+
+void *inRoute(int id)
 {
-    int trains = *((int *)threadtrain);
+  int c_inter = 0;
 
-    for (int i = 0; i < NUM_TRAIN; i++)
+  while (1)
+  {
+    // entrar na interseccão
+    pthread_mutex_lock(&mtx_intersec[c_inter]);
+    pthread_mutex_lock(&mtx_count[c_inter]);
+    printf("trem %d tentando entrar na interseccao %d\n", id, c_inter + 1);
+    while (train_count[c_inter] >= TRENS_POR_INTERSEC)
     {
-        int count_cicles = 0; // inicializacao da variavel numero de voltas de um trem
-        int count_trains = 0; // inicializacao da variavel quantidade de trens na intersecao
-        bool cond_var = true;
-
-        for (int j = 1; j < (count_cicles + 1); j++)
-        {                    // intersecoes
-            while (cond_var) // enquanto puder entrar na intersecao
-            {
-                // mutex lock
-                //  aqui usar o pthread_cond_wait(cond_var, mutex)
-                count_trains = enterIntersection(i, j, *count_trains);
-                if (count_trains < 2)
-                {
-                    cond_var = true;
-                }
-                else
-                {
-                    cond_var = false;
-                }
-                sleep(0.500);
-                count_trains = outIntersection(i, j, *count_trains);
-                
-                if (count_trains < 2)
-                {
-                    cond_var = true;
-                }
-                else
-                {
-                    cond_var = false;
-                }
-                pthread_cond_broadcast(cond_var); // aqui tem que avisar só para o próximo trem
-            }
-        }
-
-        count_cicles += count_cicles;
-        count_cicles = count_cicles % NUM_INTER; // mod 5 para o loop dos trens seguindo o percurso das intersecoes
+      printf("trem %d esperando interseccao %d ser liberada\n", id, c_inter + 1);
+      // caso já tenha 2 trens na intersecção
+      // espera a cond_var liberar
+      pthread_cond_wait(&cond_interesc[c_inter], &mtx_count[c_inter]);
     }
+    pthread_mutex_unlock(&mtx_count[c_inter]);
+    // se tiver menos que 2 trens: entra na intersecção e libera o mutex pro proximo
+    pthread_mutex_unlock(&mtx_intersec[c_inter]);
 
-    pthread_exit(NULL);
-}
+    pthread_mutex_lock(&mtx_count[c_inter]);
+    ++train_count[c_inter]; // aumenta a quantidade de trens
+    pthread_mutex_unlock(&mtx_count[c_inter]);
+    printf("trem %d passando pela interseccao %d\n", id, c_inter + 1);
+    sleep(1); // espera
 
-int enterIntersection(int const trem, int const inter, int const &arg)
-{
-    printf("trem #%d entra na interseção #%d \n", trem, inter);
-    // a ideia aqui é receber o contador de trens na interseção, acrescer 1 e passar atualizado na função inRoute
-    return &arg;
-}
+    pthread_mutex_lock(&mtx_count[c_inter]);
+    --train_count[c_inter]; // diminui a quantidade de trens
+    pthread_mutex_unlock(&mtx_count[c_inter]);
+    printf("trem %d saiu da interseccao %d\n", id, c_inter + 1);
 
-int outIntersection(int const trem, int const inter, int const &arg)
-{
-    printf("trem #%d sai da interseção #%d \n", trem, inter);
-    // a ideia aqui é receber o contador de trens na interseção, descrescer 1 e passar atualizado na função inRoute
-    return &arg;
+    pthread_cond_broadcast(&cond_interesc[c_inter]); // libera pro próximo
+    c_inter = (c_inter + 1) % 5;
+  }
+
+  pthread_exit(NULL);
 }
 
 int main()
 {
-    pthread_t threads[NUM_TRAIN];
-    int *train[NUM_TRAIN];
+  pthread_t threads[NUM_TRAIN];
 
-    int rc;
-    int t;
-    for (t = 0; t < NUM_TRAIN; t++)
+  for (size_t i = 0; i < NUM_INTER; i++)
+  { // Inicializar mutexes e condicionais
+    pthread_mutex_init(&mtx_intersec[i], NULL);
+    pthread_mutex_init(&mtx_count[i], NULL);
+    pthread_cond_init(&cond_interesc[i], NULL);
+  }
+
+  for (size_t t = 0; t < NUM_TRAIN; t++)
+  {
+    int rc = pthread_create(&threads[t], NULL, (void *)inRoute, (void *)t);
+    if (rc)
     {
-        train[t] = (int *)malloc(sizeof(int));
-        *train[t] = t;
-        rc = pthread_create(&threads[t], NULL, inRoute, (void *)train[t]);
-        if (rc)
-        {
-            printf("ERRO; código de retorno é %d\n", rc);
-            exit(-1);
-        }
+      printf("ERRO; código de retorno é %d\n", rc);
+      exit(-1);
     }
-    pthread_exit(NULL); // Desaloca as posicoes
+  }
+
+  for (size_t i = 0; i < NUM_TRAIN; i++)
+    pthread_join(threads[i], NULL);
+
+  pthread_exit(NULL); // Desaloca as posicoes
 }
